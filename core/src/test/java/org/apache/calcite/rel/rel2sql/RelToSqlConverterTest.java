@@ -35,7 +35,6 @@ import org.apache.calcite.runtime.FlatLists;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.SqlDialect.Context;
 import org.apache.calcite.sql.SqlDialect.DatabaseProduct;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlSelect;
@@ -124,8 +123,8 @@ public class RelToSqlConverterTest {
   }
 
   private static JethroDataSqlDialect jethroDataSqlDialect() {
-    Context dummyContext = SqlDialect.EMPTY_CONTEXT
-        .withDatabaseProduct(SqlDialect.DatabaseProduct.JETHRO)
+    SqlDialect.Context dummyContext = SqlDialect.EMPTY_CONTEXT
+        .withDatabaseProduct(DatabaseProduct.JETHRO)
         .withDatabaseMajorVersion(1)
         .withDatabaseMinorVersion(0)
         .withDatabaseVersion("1.0")
@@ -144,28 +143,18 @@ public class RelToSqlConverterTest {
    * represent. */
   private static Map<SqlDialect, DatabaseProduct> dialects() {
     return ImmutableMap.<SqlDialect, DatabaseProduct>builder()
-        .put(SqlDialect.DatabaseProduct.BIG_QUERY.getDialect(),
-            SqlDialect.DatabaseProduct.BIG_QUERY)
-        .put(SqlDialect.DatabaseProduct.CALCITE.getDialect(),
-            SqlDialect.DatabaseProduct.CALCITE)
-        .put(SqlDialect.DatabaseProduct.DB2.getDialect(),
-            SqlDialect.DatabaseProduct.DB2)
-        .put(SqlDialect.DatabaseProduct.HIVE.getDialect(),
-            SqlDialect.DatabaseProduct.HIVE)
-        .put(jethroDataSqlDialect(),
-            SqlDialect.DatabaseProduct.JETHRO)
-        .put(SqlDialect.DatabaseProduct.MSSQL.getDialect(),
-            SqlDialect.DatabaseProduct.MSSQL)
-        .put(SqlDialect.DatabaseProduct.MYSQL.getDialect(),
-            SqlDialect.DatabaseProduct.MYSQL)
-        .put(mySqlDialect(NullCollation.HIGH),
-            SqlDialect.DatabaseProduct.MYSQL)
-        .put(SqlDialect.DatabaseProduct.ORACLE.getDialect(),
-            SqlDialect.DatabaseProduct.ORACLE)
-        .put(SqlDialect.DatabaseProduct.POSTGRESQL.getDialect(),
-            SqlDialect.DatabaseProduct.POSTGRESQL)
-        .put(DatabaseProduct.PRESTO.getDialect(),
-            DatabaseProduct.PRESTO)
+        .put(DatabaseProduct.BIG_QUERY.getDialect(), DatabaseProduct.BIG_QUERY)
+        .put(DatabaseProduct.CALCITE.getDialect(), DatabaseProduct.CALCITE)
+        .put(DatabaseProduct.DB2.getDialect(), DatabaseProduct.DB2)
+        .put(DatabaseProduct.EXASOL.getDialect(), DatabaseProduct.EXASOL)
+        .put(DatabaseProduct.HIVE.getDialect(), DatabaseProduct.HIVE)
+        .put(jethroDataSqlDialect(), DatabaseProduct.JETHRO)
+        .put(DatabaseProduct.MSSQL.getDialect(), DatabaseProduct.MSSQL)
+        .put(DatabaseProduct.MYSQL.getDialect(), DatabaseProduct.MYSQL)
+        .put(mySqlDialect(NullCollation.HIGH), DatabaseProduct.MYSQL)
+        .put(DatabaseProduct.ORACLE.getDialect(), DatabaseProduct.ORACLE)
+        .put(DatabaseProduct.POSTGRESQL.getDialect(), DatabaseProduct.POSTGRESQL)
+        .put(DatabaseProduct.PRESTO.getDialect(), DatabaseProduct.PRESTO)
         .build();
   }
 
@@ -176,7 +165,7 @@ public class RelToSqlConverterTest {
 
   /** Converts a relational expression to SQL. */
   private String toSql(RelNode root) {
-    return toSql(root, SqlDialect.DatabaseProduct.CALCITE.getDialect());
+    return toSql(root, DatabaseProduct.CALCITE.getDialect());
   }
 
   /** Converts a relational expression to SQL in a given dialect. */
@@ -656,6 +645,16 @@ public class RelToSqlConverterTest {
         + "FROM \"foodmart\".\"product\"\n"
         + "GROUP BY \"product_id\") AS \"t1\"";
     final String expectedVertica = expectedPostgresql;
+    final String expectedBigQuery = "SELECT SUM(net_weight1) AS net_weight_converted\n"
+        + "FROM (SELECT SUM(net_weight) AS net_weight1\n"
+        + "FROM foodmart.product\n"
+        + "GROUP BY product_id) AS t1";
+    final String expectedHive = "SELECT SUM(net_weight1) net_weight_converted\n"
+        + "FROM (SELECT SUM(net_weight) net_weight1\n"
+        + "FROM foodmart.product\n"
+        + "GROUP BY product_id) t1";
+    final String expectedSpark = expectedHive;
+    final String expectedExasol = expectedBigQuery;
     sql(query)
         .withOracle()
         .ok(expectedOracle)
@@ -664,7 +663,15 @@ public class RelToSqlConverterTest {
         .withVertica()
         .ok(expectedVertica)
         .withPostgresql()
-        .ok(expectedPostgresql);
+        .ok(expectedPostgresql)
+        .withBigQuery()
+        .ok(expectedBigQuery)
+        .withHive()
+        .ok(expectedHive)
+        .withSpark()
+        .ok(expectedSpark)
+        .withExasol()
+        .ok(expectedExasol);
   }
 
   /** Test case for
@@ -978,6 +985,24 @@ public class RelToSqlConverterTest {
     sql(query).withMssql().ok(expected);
   }
 
+  @Test public void testExasolCharacterSet() {
+    String query = "select \"hire_date\", cast(\"hire_date\" as varchar(10))\n"
+        + "from \"foodmart\".\"reserve_employee\"";
+    final String expected = "SELECT hire_date, CAST(hire_date AS VARCHAR(10))\n"
+        + "FROM foodmart.reserve_employee";
+    sql(query).withExasol().ok(expected);
+  }
+
+  @Test public void testExasolCastToTimestamp() {
+    final String query = "select  * from \"employee\" where  \"hire_date\" - "
+        + "INTERVAL '19800' SECOND(5) > cast(\"hire_date\" as TIMESTAMP(0))";
+    final String expected = "SELECT *\n"
+        + "FROM foodmart.employee\n"
+        + "WHERE (hire_date - INTERVAL '19800' SECOND(5))"
+        + " > CAST(hire_date AS TIMESTAMP)";
+    sql(query).withExasol().ok(expected);
+  }
+
   /**
    * Tests that IN can be un-parsed.
    *
@@ -1104,12 +1129,18 @@ public class RelToSqlConverterTest {
         + " 4 AS \"fo$ur\", 5 AS \"ignore\"\n"
         + "FROM \"foodmart\".\"days\") AS \"t\"\n"
         + "WHERE \"one\" < \"tWo\" AND \"THREE\" < \"fo$ur\"";
-    final String expectedOracle = expectedPostgresql.replaceAll(" AS ", " ");
+    final String expectedOracle = expectedPostgresql.replace(" AS ", " ");
+    final String expectedExasol = "SELECT *\n"
+        + "FROM (SELECT 1 AS one, 2 AS tWo, 3 AS THREE,"
+        + " 4 AS \"fo$ur\", 5 AS \"ignore\"\n"
+        + "FROM foodmart.days) AS t\n"
+        + "WHERE one < tWo AND THREE < \"fo$ur\"";
     sql(query)
         .withBigQuery().ok(expectedBigQuery)
         .withMysql().ok(expectedMysql)
         .withOracle().ok(expectedOracle)
-        .withPostgresql().ok(expectedPostgresql);
+        .withPostgresql().ok(expectedPostgresql)
+        .withExasol().ok(expectedExasol);
   }
 
   @Test public void testModFunctionForHive() {
@@ -4089,10 +4120,10 @@ public class RelToSqlConverterTest {
         new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     final RelDataType booleanDataType = typeFactory.createSqlType(SqlTypeName.BOOLEAN);
     final RelDataType integerDataType = typeFactory.createSqlType(SqlTypeName.INTEGER);
-    final SqlDialect oracleDialect = SqlDialect.DatabaseProduct.ORACLE.getDialect();
+    final SqlDialect oracleDialect = DatabaseProduct.ORACLE.getDialect();
     assertFalse(oracleDialect.supportsDataType(booleanDataType));
     assertTrue(oracleDialect.supportsDataType(integerDataType));
-    final SqlDialect postgresqlDialect = SqlDialect.DatabaseProduct.POSTGRESQL.getDialect();
+    final SqlDialect postgresqlDialect = DatabaseProduct.POSTGRESQL.getDialect();
     assertTrue(postgresqlDialect.supportsDataType(booleanDataType));
     assertTrue(postgresqlDialect.supportsDataType(integerDataType));
   }
@@ -4265,19 +4296,23 @@ public class RelToSqlConverterTest {
     }
 
     Sql withClickHouse() {
-      return dialect(SqlDialect.DatabaseProduct.CLICKHOUSE.getDialect());
+      return dialect(DatabaseProduct.CLICKHOUSE.getDialect());
     }
 
     Sql withDb2() {
-      return dialect(SqlDialect.DatabaseProduct.DB2.getDialect());
+      return dialect(DatabaseProduct.DB2.getDialect());
+    }
+
+    Sql withExasol() {
+      return dialect(DatabaseProduct.EXASOL.getDialect());
     }
 
     Sql withHive() {
-      return dialect(SqlDialect.DatabaseProduct.HIVE.getDialect());
+      return dialect(DatabaseProduct.HIVE.getDialect());
     }
 
     Sql withHsqldb() {
-      return dialect(SqlDialect.DatabaseProduct.HSQLDB.getDialect());
+      return dialect(DatabaseProduct.HSQLDB.getDialect());
     }
 
     Sql withMssql() {
@@ -4295,7 +4330,7 @@ public class RelToSqlConverterTest {
     }
 
     Sql withMysql() {
-      return dialect(SqlDialect.DatabaseProduct.MYSQL.getDialect());
+      return dialect(DatabaseProduct.MYSQL.getDialect());
     }
 
     Sql withMysql8() {
@@ -4309,11 +4344,11 @@ public class RelToSqlConverterTest {
     }
 
     Sql withOracle() {
-      return dialect(SqlDialect.DatabaseProduct.ORACLE.getDialect());
+      return dialect(DatabaseProduct.ORACLE.getDialect());
     }
 
     Sql withPostgresql() {
-      return dialect(SqlDialect.DatabaseProduct.POSTGRESQL.getDialect());
+      return dialect(DatabaseProduct.POSTGRESQL.getDialect());
     }
 
     Sql withPresto() {
@@ -4333,11 +4368,11 @@ public class RelToSqlConverterTest {
     }
 
     Sql withVertica() {
-      return dialect(SqlDialect.DatabaseProduct.VERTICA.getDialect());
+      return dialect(DatabaseProduct.VERTICA.getDialect());
     }
 
     Sql withBigQuery() {
-      return dialect(SqlDialect.DatabaseProduct.BIG_QUERY.getDialect());
+      return dialect(DatabaseProduct.BIG_QUERY.getDialect());
     }
 
     Sql withSpark() {
