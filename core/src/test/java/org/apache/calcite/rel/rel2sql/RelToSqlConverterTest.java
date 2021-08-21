@@ -3658,34 +3658,14 @@ public class RelToSqlConverterTest {
    * without FROM</a>. */
   @Test public void testSelectWithoutFrom() {
     final String query = "select 2 + 2";
-    final String expectedBigQuery = "SELECT 2 + 2";
-    final String expectedClickHouse = expectedBigQuery;
-    final String expectedHive = expectedBigQuery;
-    final String expectedMysql = expectedBigQuery;
-    final String expectedPostgresql = "SELECT 2 + 2\n"
-        + "FROM (VALUES (0)) AS \"t\" (\"ZERO\")";
-    sql(query)
-        .withBigQuery().ok(expectedBigQuery)
-        .withClickHouse().ok(expectedClickHouse)
-        .withHive().ok(expectedHive)
-        .withMysql().ok(expectedMysql)
-        .withPostgresql().ok(expectedPostgresql);
+    final String expectedClickHouse = "SELECT 2 + 2";
+    sql(query).withClickHouse().ok(expectedClickHouse);
   }
 
   @Test public void testSelectOne() {
     final String query = "select 1";
-    final String expectedBigQuery = "SELECT 1";
-    final String expectedClickHouse = expectedBigQuery;
-    final String expectedHive = expectedBigQuery;
-    final String expectedMysql = expectedBigQuery;
-    final String expectedPostgresql = "SELECT *\n"
-        + "FROM (VALUES (1)) AS \"t\" (\"EXPR$0\")";
-    sql(query)
-        .withBigQuery().ok(expectedBigQuery)
-        .withClickHouse().ok(expectedClickHouse)
-        .withHive().ok(expectedHive)
-        .withMysql().ok(expectedMysql)
-        .withPostgresql().ok(expectedPostgresql);
+    final String expectedClickHouse = "SELECT 1";
+    sql(query).withClickHouse().ok(expectedClickHouse);
   }
 
   /** Test case for
