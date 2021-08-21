@@ -1419,7 +1419,7 @@ public class RelToSqlConverterTest {
     sql(query).dialect(mySqlDialect(NullCollation.LAST)).ok(expected);
   }
 
-  @Test void testMySqlWithLastNullsSelectWithOverAscAndNullsLastShouldNotBeEmulated() {
+  @Test public void testMySqlWithLastNullsSelectWithOverAscAndNullsLastShouldNotBeEmulated() {
     final String query = "SELECT row_number() over "
         + "(order by \"hire_date\" nulls last) FROM \"employee\"";
     final String expected = "SELECT ROW_NUMBER() OVER (ORDER BY `hire_date`)\n"
@@ -1427,7 +1427,7 @@ public class RelToSqlConverterTest {
     sql(query).dialect(mySqlDialect(NullCollation.LAST)).ok(expected);
   }
 
-  @Test void testCastToVarchar() {
+  @Test public void testCastToVarchar() {
     String query = "select cast(\"product_id\" as varchar) from \"product\"";
     final String expectedClickHouse = "SELECT CAST(`product_id` AS `String`)\n"
         + "FROM `foodmart`.`product`";
@@ -2069,7 +2069,7 @@ public class RelToSqlConverterTest {
         .ok(expected);
   }
 
-  @Test void testFloorClickHouse() {
+  @Test public void testFloorClickHouse() {
     String query = "SELECT floor(\"hire_date\" TO MINUTE) FROM \"employee\"";
     String expected = "SELECT toStartOfMinute(`hire_date`)\nFROM `foodmart`.`employee`";
     sql(query)
@@ -2077,7 +2077,7 @@ public class RelToSqlConverterTest {
         .ok(expected);
   }
 
-  @Test void testFloorPostgres() {
+  @Test public void testFloorPostgres() {
     String query = "SELECT floor(\"hire_date\" TO MINUTE) FROM \"employee\"";
     String expected = "SELECT DATE_TRUNC('MINUTE', \"hire_date\")\nFROM \"foodmart\".\"employee\"";
     sql(query)
@@ -2140,7 +2140,7 @@ public class RelToSqlConverterTest {
         .ok(expectedMysql);
   }
 
-  @Test void testUnparseSqlIntervalQualifierDb2() {
+  @Test public void testUnparseSqlIntervalQualifierDb2() {
     String queryDatePlus = "select  * from \"employee\" where  \"hire_date\" + "
         + "INTERVAL '19800' SECOND(5) > TIMESTAMP '2005-10-17 00:00:00' ";
     String expectedDatePlus = "SELECT *\n"
@@ -2259,7 +2259,7 @@ public class RelToSqlConverterTest {
         .ok(expectedMysql);
   }
 
-  @Test void testFloorMysqlHour() {
+  @Test public void testFloorMysqlHour() {
     String query = "SELECT floor(\"hire_date\" TO HOUR) FROM \"employee\"";
     String expected = "SELECT DATE_FORMAT(`hire_date`, '%Y-%m-%d %H:00:00')\n"
         + "FROM `foodmart`.`employee`";
