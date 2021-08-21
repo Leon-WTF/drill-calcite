@@ -28,8 +28,6 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 
 import com.google.common.collect.ImmutableList;
 
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -158,7 +156,7 @@ public class ExasolSqlDialect extends SqlDialect {
         || RESERVED_KEYWORDS.contains(val.toUpperCase(Locale.ROOT));
   }
 
-  @Override public @Nullable SqlNode getCastSpec(RelDataType type) {
+  @Override public SqlNode getCastSpec(RelDataType type) {
     switch (type.getSqlTypeName()) {
     case TIMESTAMP:
       // Exasol does not support TIMESTAMP with precision.
@@ -170,8 +168,8 @@ public class ExasolSqlDialect extends SqlDialect {
     }
   }
 
-  @Override public void unparseOffsetFetch(SqlWriter writer, @Nullable SqlNode offset,
-    @Nullable SqlNode fetch) {
+  @Override public void unparseOffsetFetch(SqlWriter writer, SqlNode offset,
+    SqlNode fetch) {
     unparseFetchUsingLimit(writer, offset, fetch);
   }
 

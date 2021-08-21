@@ -66,6 +66,10 @@ public class SparkSqlDialect extends SqlDialect {
     return JoinType.CROSS;
   }
 
+  @Override public boolean supportsNestedAggregations() {
+    return false;
+  }
+
   @Override public boolean supportsGroupByWithRollup() {
     return true;
   }

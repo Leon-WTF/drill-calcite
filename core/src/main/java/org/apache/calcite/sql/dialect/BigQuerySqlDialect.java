@@ -102,6 +102,10 @@ public class BigQuerySqlDialect extends SqlDialect {
     return emulateNullDirectionWithIsNull(node, nullsFirst, desc);
   }
 
+  @Override public boolean supportsNestedAggregations() {
+    return false;
+  }
+
   @Override public boolean supportsImplicitTypeCoercion(RexCall call) {
     return super.supportsImplicitTypeCoercion(call)
             && RexUtil.isLiteral(call.getOperands().get(0), false)

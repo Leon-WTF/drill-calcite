@@ -353,14 +353,7 @@ public class SqlDialect {
    * @return Quoted identifier
    */
   public String quoteIdentifier(String val) {
-    if (identifierQuoteString == null) {
-      return val; // quoting is not supported
-    }
-    String val2 =
-        val.replaceAll(
-            identifierEndQuoteString,
-            identifierEscapedQuote);
-    return identifierQuoteString + val2 + identifierEndQuoteString;
+    return quoteIdentifier(new StringBuilder(), val).toString();
   }
 
   /**
@@ -710,6 +703,12 @@ public class SqlDialect {
       return true;
     }
     return false;
+  }
+
+  /** Returns whether this dialect supports the use of FILTER clauses for
+   * aggregate functions. e.g. {@code COUNT(*) FILTER (WHERE a = 2)}. */
+  public boolean supportsAggregateFunctionFilter() {
+    return true;
   }
 
   /** Returns whether this dialect supports window functions (OVER clause). */
